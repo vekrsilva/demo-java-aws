@@ -2,7 +2,8 @@ version: 0.2
 
 env:
   variables:
-    CONTAINER_NAME: "web"   # mesmo nome da Task Definition
+    CONTAINER_NAME: "web"                  # Nome exato do container na Task Definition
+    IMAGE_REPO_NAME: "986323538035.dkr.ecr.us-east-1.amazonaws.com/demo-java-aws" # <<< MUDE AQUI - nome do repositório no ECR (ex: spring-boot-app)
     IMAGE_TAG: "latest"
 
 phases:
@@ -12,27 +13,37 @@ phases:
 
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
+      - echo "=== Iniciando login no Amazon ECR ==="
+      - aws --version
+      # Login no ECR (corrigido)
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
-      - echo Build started on `date`
-
-      # 🔹 Build do projeto Java
+      - echo "=== Build iniciado em $(date) ==="
+      
+      # Build Maven do Spring Boot
+      - echo "Executando Maven clean package..."
       - mvn clean package -DskipTests
-
-      # 🔹 Build da imagem Docker
+      
+      # Build da imagem Docker
+      - echo "Construindo imagem Docker..."
+      - REPOSITORY_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - docker build -t $REPOSITORY_URI:$IMAGE_TAG .
 
   post_build:
     commands:
-      - echo Build completed on `date`
-      - echo Pushing the Docker image...
+      - echo "=== Build finalizado em $(date) ==="
+      
+      # Push da imagem
+      - echo "Fazendo push da imagem para o ECR..."
+      - REPOSITORY_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-
-      - echo Writing image definitions file...
-      - printf '[{"name":"%s","imageUri":"%s"}]' $CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      
+      # Cria o arquivo imagedefinitions.json (obrigatório para o deploy no ECS)
+      - echo "Gerando imagedefinitions.json..."
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+      - cat imagedefinitions.json
 
 artifacts:
   files:
