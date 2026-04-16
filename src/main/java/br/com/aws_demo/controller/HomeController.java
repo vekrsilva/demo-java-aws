@@ -8,6 +8,6 @@ public class HomeController {
 
     @GetMapping("/")
     public String home() {
-        return "Bem-vindo ao MeuSite!";
+        return "Bem-vindo ao MeuSite Java!";
     }
 }
